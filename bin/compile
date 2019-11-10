@@ -139,6 +139,17 @@ EOF
 
 cd "$CUR_DIR"
 
+# sigil support for index.html
+if [[ -f "${BUILD_DIR}/www/index.html.sigil" ]]; then
+  echo "-----> Using user provided index.html.sigil"
+  set -x
+  $BUILD_DIR/sigil/sigil -p \
+    -f "${BUILD_DIR}/www/index.html.sigil" \
+    HOSTNAME=$HOSTNAME \
+    > "${BUILD_DIR}/www/index.html"
+  set +x
+fi
+
 # Add support for app-nginx.conf.sigil
 if [ -f "$BUILD_DIR/app-nginx.conf.sigil" ] ; then
   echo "-----> Using user provided app-nginx.conf.sigil"
