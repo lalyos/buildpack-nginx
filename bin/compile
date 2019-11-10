@@ -139,17 +139,6 @@ EOF
 
 cd "$CUR_DIR"
 
-# sigil support for index.html
-if [[ -f "${BUILD_DIR}/www/index.html.sigil" ]]; then
-  echo "-----> Using user provided index.html.sigil"
-  set -x
-  $BUILD_DIR/sigil/sigil -p \
-    -f "${BUILD_DIR}/www/index.html.sigil" \
-    HOSTNAME=$HOSTNAME \
-    > "${BUILD_DIR}/www/index.html"
-  set +x
-fi
-
 # Add support for app-nginx.conf.sigil
 if [ -f "$BUILD_DIR/app-nginx.conf.sigil" ] ; then
   echo "-----> Using user provided app-nginx.conf.sigil"
@@ -176,15 +165,34 @@ else
   cp conf/mime.types "$BUILD_DIR/nginx/mime.types"
 fi
 
+
 # build a startup script
-cat <<EOF >"$BUILD_DIR/start_nginx"
+cat <<"EOF" >"$BUILD_DIR/start_nginx"
 #!/usr/bin/env bash
+set -x
 rm -f /app/nginx/nginx.conf
 if [[ -f /app/nginx/app-nginx.conf.sigil ]]; then
-  /app/sigil/sigil -f /app/nginx/app-nginx.conf.sigil NGINX_ROOT="\$NGINX_ROOT" PORT="\$PORT" | cat -s > /app/nginx/nginx.conf
+  /app/sigil/sigil -f /app/nginx/app-nginx.conf.sigil NGINX_ROOT="$NGINX_ROOT" PORT="$PORT" | cat -s > /app/nginx/nginx.conf
 else
   erb /app/nginx/nginx.conf.erb > /app/nginx/nginx.conf
 fi
+
+# sigil support for *.html
+if [[ "$SIGIL" == "enabled" ]]; then 
+  vars=()
+  for v in ${!APP_*}; do 
+    vars+=("${v}=${!v}")
+  done
+
+  for template in /app/www/*.html; do
+    cp ${template} ${template}.sigil
+    /app/sigil/sigil -p -f ${template}.sigil \
+      HOSTNAME=$HOSTNAME "${vars[@]}" \
+      | tee ${template}
+  done
+fi
+
 exec /app/nginx/nginx -p /app/nginx -c /app/nginx/nginx.conf
+
 EOF
 chmod +x "$BUILD_DIR/start_nginx"
